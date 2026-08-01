@@ -23,7 +23,17 @@ type Site struct {
 // defaultAllowedPrefixes covers the REST APIs of Jira, Confluence and
 // Bitbucket Data Center. Anything outside these is refused, so a stray path
 // cannot turn proxz into a general-purpose authenticated fetcher for the host.
-var defaultAllowedPrefixes = []string{"/rest/"}
+//
+// Attachment bytes are the exception that forces the last two entries: neither
+// Jira nor Confluence serves attachment content from under /rest/, so without
+// them attachments cannot be downloaded at all. Both subtrees are narrow and
+// read-only; note that /secure/attachment/ admits only attachments, not the
+// rest of Jira's /secure/ tree.
+var defaultAllowedPrefixes = []string{
+	"/rest/",
+	"/secure/attachment/",    // Jira attachment content
+	"/download/attachments/", // Confluence attachment content
+}
 
 func (s *Site) prefixes() []string {
 	if len(s.AllowedPrefixes) == 0 {

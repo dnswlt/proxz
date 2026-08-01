@@ -54,8 +54,9 @@ proxz logout jira    # remove a site
 
 A whole URL works as well as a site plus path: proxz matches the URL against
 the configured sites (longest base URL wins, so context paths behave) and
-refuses any host it does not recognise. The `/rest/` allowlist applies either
-way.
+refuses any host it does not recognise. The path allowlist applies either way:
+`/rest/`, plus `/secure/attachment/` and `/download/attachments/`, since Jira
+and Confluence serve attachment bytes from outside their REST trees.
 
 No flags. 30s timeout.
 Pipe to `jq` if you want it formatted.

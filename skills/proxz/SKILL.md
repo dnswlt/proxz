@@ -38,7 +38,8 @@ A site name plus a path also works — `proxz get jira /rest/api/2/issue/PROJ-12
 — but prefer the URL form. A bare `/rest/...` argument looks like a filesystem
 path and tends to make agent harnesses stop and ask for confirmation.
 
-Everything after the base URL must start with `/rest/`, in either form.
+Everything after the base URL must start with `/rest/`, in either form — plus
+the two attachment download subtrees described under Attachments below.
 
 Output is the response body unchanged — JSON for most endpoints, plain bytes
 for things like raw files and diffs. These APIs are verbose: a single Jira
@@ -68,6 +69,7 @@ Jira (`/rest/api/2/`):
 | Search by JQL | `/rest/api/2/search?jql=<url-encoded>&maxResults=50` |
 | Issue comments | `/rest/api/2/issue/PROJ-123/comment` |
 | Project metadata | `/rest/api/2/project/PROJ` |
+| Attachment metadata | `/rest/api/2/attachment/10000` |
 | Current user | `/rest/api/2/myself` |
 
 Confluence (`/rest/api/`):
@@ -78,6 +80,7 @@ Confluence (`/rest/api/`):
 | Page by space and title | `/rest/api/content?spaceKey=SPACE&title=Page+Title&expand=body.storage` |
 | Child pages | `/rest/api/content/12345/child/page` |
 | Search by CQL | `/rest/api/content/search?cql=<url-encoded>` |
+| Attachments on a page | `/rest/api/content/12345/child/attachment` |
 
 Bitbucket (`/rest/api/1.0/`):
 
@@ -113,6 +116,42 @@ the whole file:
 ```sh
 proxz get 'https://bitbucket.corp/rest/api/1.0/projects/PROJ/repos/my-repo/browse/src/main.go?limit=2000'
 ```
+
+## Attachments
+
+Attachment **bytes do not live under `/rest/`** in Jira or Confluence, and the
+download URL is not something you should construct by hand. Fetch the metadata
+first, take the URL out of it, then fetch that URL.
+
+Jira — the attachment id comes from the issue's `fields.attachment` array:
+
+```sh
+# 1. metadata; the "content" field holds the full download URL
+proxz get https://jira.corp/rest/api/2/attachment/10000
+
+# 2. fetch that URL verbatim
+proxz get 'https://jira.corp/secure/attachment/10000/screenshot.png' > screenshot.png
+```
+
+Confluence — list a page's attachments, then follow `_links.download`, which is
+relative and must be appended to the site's base URL:
+
+```sh
+# 1. list attachments on page 12345 (add ?filename=x.pdf to narrow)
+proxz get https://wiki.corp/rest/api/content/12345/child/attachment
+
+# 2. base URL + the _links.download value
+proxz get 'https://wiki.corp/download/attachments/12345/design.pdf?version=1&modificationDate=1700000000000' > design.pdf
+```
+
+Keep the whole query string on Confluence download links — `version` and
+`modificationDate` are part of how the file is addressed. Redirect to a file
+rather than letting binary content into your output.
+
+Bitbucket has no equivalent step: repository files come straight from `raw`,
+described above.
+
+## Pagination
 
 Pagination parameters differ by product, and mixing them up silently returns a
 default page rather than an error:

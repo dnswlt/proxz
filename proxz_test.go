@@ -316,3 +316,29 @@ func TestGetByURLEnforcesPrefixes(t *testing.T) {
 		t.Error("a URL outside the allowed prefixes must still be rejected")
 	}
 }
+
+// TestCheckPathAttachments covers the attachment subtrees, which are the only
+// paths allowed outside /rest/. The surrounding /secure/ tree must stay shut.
+func TestCheckPathAttachments(t *testing.T) {
+	site := &Site{BaseURL: "https://jira.corp"}
+	allowed := []string{
+		"/secure/attachment/10000/screenshot.png",
+		"/download/attachments/12345/design.pdf?version=1&modificationDate=1700000000000",
+	}
+	for _, p := range allowed {
+		if _, err := checkPath(site, p); err != nil {
+			t.Errorf("checkPath(%q) should be allowed: %v", p, err)
+		}
+	}
+	denied := []string{
+		"/secure/admin",
+		"/secure/AdminSummary.jspa",
+		"/secure/Dashboard.jspa",
+		"/download/resources/some.js",
+	}
+	for _, p := range denied {
+		if _, err := checkPath(site, p); err == nil {
+			t.Errorf("checkPath(%q) should be rejected", p)
+		}
+	}
+}
