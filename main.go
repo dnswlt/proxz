@@ -7,11 +7,9 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"os"
 	"strings"
-	"time"
 
 	"golang.org/x/term"
 )
@@ -21,7 +19,7 @@ const usage = `proxz - read-only proxy for Jira/Confluence/Bitbucket Data Center
 Usage:
   proxz get <site> <path>      Perform a GET against a configured site
   proxz sites                  List configured sites
-  proxz login <site>           Store a personal access token for a site
+  proxz login <site> <url>     Store a personal access token for a site
   proxz logout <site>          Remove a site
 
 Examples:
@@ -61,53 +59,19 @@ func run(args []string) error {
 	}
 }
 
-// parseArgs parses a flag set, allowing flags and positional arguments to be
-// interleaved. The standard flag package stops at the first positional, which
-// would silently ignore `proxz get jira /rest/... --pretty` - exactly the
-// order a caller is most likely to type.
-func parseArgs(fs *flag.FlagSet, args []string) ([]string, error) {
-	var positional []string
-	for {
-		if err := fs.Parse(args); err != nil {
-			return nil, err
-		}
-		args = fs.Args()
-		if len(args) == 0 {
-			return positional, nil
-		}
-		positional = append(positional, args[0])
-		args = args[1:]
-	}
-}
-
 func cmdGet(args []string) error {
-	fs := flag.NewFlagSet("get", flag.ContinueOnError)
-	pretty := fs.Bool("pretty", false, "re-indent JSON responses")
-	maxBytes := fs.Int64("max-bytes", 20<<20, "maximum response size to read")
-	timeout := fs.Duration("timeout", 30*time.Second, "request timeout")
-	accept := fs.String("accept", "application/json", "Accept header to send")
-	pos, err := parseArgs(fs, args)
-	if err != nil {
-		return err
-	}
-	if len(pos) != 2 {
+	if len(args) != 2 {
 		return fmt.Errorf("usage: proxz get <site> <path>")
 	}
 	cfg, err := loadConfig()
 	if err != nil {
 		return err
 	}
-	site, err := cfg.site(pos[0])
+	site, err := cfg.site(args[0])
 	if err != nil {
 		return err
 	}
-	opts := fetchOptions{
-		pretty:   *pretty,
-		maxBytes: *maxBytes,
-		timeout:  *timeout,
-		accept:   *accept,
-	}
-	return fetch(site, pos[1], opts, os.Stdout)
+	return fetch(site, args[1], os.Stdout)
 }
 
 func cmdSites(args []string) error {
@@ -119,7 +83,7 @@ func cmdSites(args []string) error {
 		return err
 	}
 	if len(cfg.Sites) == 0 {
-		fmt.Println("no sites configured; run: proxz login <site> --url https://...")
+		fmt.Println("no sites configured; run: proxz login <site> <url>")
 		return nil
 	}
 	for _, name := range cfg.siteNames() {
@@ -130,34 +94,19 @@ func cmdSites(args []string) error {
 }
 
 func cmdLogin(args []string) error {
-	fs := flag.NewFlagSet("login", flag.ContinueOnError)
-	baseURL := fs.String("url", "", "base URL of the instance, e.g. https://jira.corp")
-	prefixes := fs.String("prefixes", "", "comma-separated allowed path prefixes (default /rest/)")
-	pos, err := parseArgs(fs, args)
-	if err != nil {
-		return err
+	if len(args) != 2 {
+		return fmt.Errorf("usage: proxz login <site> <url>\n  e.g. proxz login jira https://jira.corp")
 	}
-	if len(pos) != 1 {
-		return fmt.Errorf("usage: proxz login <site> --url https://...")
-	}
-	name := pos[0]
+	name := args[0]
+	site := &Site{BaseURL: strings.TrimSuffix(args[1], "/")}
 
 	cfg, err := loadConfig()
 	if err != nil {
 		return err
 	}
-	site := cfg.Sites[name]
-	if site == nil {
-		site = &Site{}
-	}
-	if *baseURL != "" {
-		site.BaseURL = strings.TrimSuffix(*baseURL, "/")
-	}
-	if site.BaseURL == "" {
-		return fmt.Errorf("site %q has no base URL; pass --url https://...", name)
-	}
-	if *prefixes != "" {
-		site.AllowedPrefixes = strings.Split(*prefixes, ",")
+	// Keep any per-site prefix override the config already carries.
+	if old := cfg.Sites[name]; old != nil {
+		site.AllowedPrefixes = old.AllowedPrefixes
 	}
 
 	if !usingBuildKey() {

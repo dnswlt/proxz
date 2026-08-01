@@ -6,7 +6,6 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
-	"time"
 )
 
 func TestScrambleRoundTrip(t *testing.T) {
@@ -145,11 +144,7 @@ func TestFetchSendsGetWithBearer(t *testing.T) {
 	site := &Site{BaseURL: srv.URL, Token: token}
 
 	var out strings.Builder
-	err = fetch(site, "/rest/api/2/issue/PROJ-123?fields=summary", fetchOptions{
-		maxBytes: 1 << 20,
-		timeout:  5 * time.Second,
-		accept:   "application/json",
-	}, &out)
+	err = fetch(site, "/rest/api/2/issue/PROJ-123?fields=summary", &out)
 	if err != nil {
 		t.Fatalf("fetch: %v", err)
 	}
@@ -175,9 +170,7 @@ func TestFetchReportsHTTPError(t *testing.T) {
 
 	site := &Site{BaseURL: srv.URL, Token: "plain"}
 	var out strings.Builder
-	err := fetch(site, "/rest/api/2/issue/NOPE-1", fetchOptions{
-		maxBytes: 1 << 20, timeout: 5 * time.Second, accept: "application/json",
-	}, &out)
+	err := fetch(site, "/rest/api/2/issue/NOPE-1", &out)
 	if err == nil {
 		t.Fatal("expected an error for a 404 response")
 	}
@@ -205,33 +198,12 @@ func TestFetchRefusesCrossHostRedirect(t *testing.T) {
 
 	site := &Site{BaseURL: srv.URL, Token: "plain"}
 	var out strings.Builder
-	err := fetch(site, "/rest/api/2/myself", fetchOptions{
-		maxBytes: 1 << 20, timeout: 5 * time.Second, accept: "application/json",
-	}, &out)
+	err := fetch(site, "/rest/api/2/myself", &out)
 	if err == nil {
 		t.Fatal("expected the cross-host redirect to be refused")
 	}
 	if leakedAuth != "" {
 		t.Errorf("Authorization header leaked to the redirect target: %q", leakedAuth)
-	}
-}
-
-func TestFetchTruncatesLargeResponse(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		io.WriteString(w, strings.Repeat("x", 1000))
-	}))
-	defer srv.Close()
-
-	site := &Site{BaseURL: srv.URL, Token: "plain"}
-	var out strings.Builder
-	err := fetch(site, "/rest/api/2/big", fetchOptions{
-		maxBytes: 100, timeout: 5 * time.Second, accept: "application/json",
-	}, &out)
-	if err == nil || !strings.Contains(err.Error(), "truncated") {
-		t.Fatalf("expected a truncation error, got %v", err)
-	}
-	if out.Len() != 100 {
-		t.Errorf("wrote %d bytes, want 100", out.Len())
 	}
 }
 
@@ -245,25 +217,6 @@ func TestRunRejectsNonGetVerbs(t *testing.T) {
 		if !strings.Contains(err.Error(), "only performs GET") {
 			t.Errorf("run(%q) error = %q, want it to explain the GET-only rule", verb, err)
 		}
-	}
-}
-
-func TestFetchExactMaxBytesIsNotTruncated(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		io.WriteString(w, strings.Repeat("x", 100))
-	}))
-	defer srv.Close()
-
-	site := &Site{BaseURL: srv.URL, Token: "plain"}
-	var out strings.Builder
-	err := fetch(site, "/rest/api/2/exact", fetchOptions{
-		maxBytes: 100, timeout: 5 * time.Second, accept: "application/json",
-	}, &out)
-	if err != nil {
-		t.Fatalf("a response of exactly max-bytes should succeed, got %v", err)
-	}
-	if out.Len() != 100 {
-		t.Errorf("wrote %d bytes, want 100", out.Len())
 	}
 }
 

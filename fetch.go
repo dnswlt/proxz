@@ -1,8 +1,6 @@
 package main
 
 import (
-	"bytes"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -73,15 +71,10 @@ func newClient(timeout time.Duration) *http.Client {
 	}
 }
 
-type fetchOptions struct {
-	pretty   bool
-	maxBytes int64
-	timeout  time.Duration
-	accept   string
-}
+const requestTimeout = 30 * time.Second
 
-// fetch performs the GET request and writes the response body to w.
-func fetch(site *Site, rawPath string, opts fetchOptions, w io.Writer) error {
+// fetch performs the GET request and streams the response body to w.
+func fetch(site *Site, rawPath string, w io.Writer) error {
 	rel, err := checkPath(site, rawPath)
 	if err != nil {
 		return err
@@ -109,10 +102,10 @@ func fetch(site *Site, rawPath string, opts fetchOptions, w io.Writer) error {
 		return err
 	}
 	req.Header.Set("Authorization", "Bearer "+pat)
-	req.Header.Set("Accept", opts.accept)
+	req.Header.Set("Accept", "application/json")
 	req.Header.Set("User-Agent", "proxz/1.0")
 
-	resp, err := newClient(opts.timeout).Do(req)
+	resp, err := newClient(requestTimeout).Do(req)
 	if err != nil {
 		// url.Error stringifies the full URL but never the headers, so the
 		// PAT cannot surface here.
@@ -120,28 +113,8 @@ func fetch(site *Site, rawPath string, opts fetchOptions, w io.Writer) error {
 	}
 	defer resp.Body.Close()
 
-	// Read one byte past the limit so a response of exactly maxBytes is not
-	// misreported as truncated.
-	body, err := io.ReadAll(io.LimitReader(resp.Body, opts.maxBytes+1))
-	if err != nil {
+	if _, err := io.Copy(w, resp.Body); err != nil {
 		return fmt.Errorf("reading response: %w", err)
-	}
-	truncated := int64(len(body)) > opts.maxBytes
-	if truncated {
-		body = body[:opts.maxBytes]
-	}
-
-	if opts.pretty && json.Valid(body) {
-		var buf bytes.Buffer
-		if err := json.Indent(&buf, body, "", "  "); err == nil {
-			body = append(buf.Bytes(), '\n')
-		}
-	}
-	if _, err := w.Write(body); err != nil {
-		return err
-	}
-	if truncated {
-		return fmt.Errorf("response truncated at %d bytes; narrow the query or raise --max-bytes", opts.maxBytes)
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return fmt.Errorf("%s returned %s", target.Redacted(), resp.Status)

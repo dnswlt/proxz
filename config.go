@@ -55,7 +55,7 @@ func (c *Config) site(name string) (*Site, error) {
 	s, ok := c.Sites[name]
 	if !ok {
 		if len(c.Sites) == 0 {
-			return nil, fmt.Errorf("no sites configured; run: proxz login %s --url https://...", name)
+			return nil, fmt.Errorf("no sites configured; run: proxz login %s <url>", name)
 		}
 		return nil, fmt.Errorf("unknown site %q; configured sites: %s",
 			name, strings.Join(c.siteNames(), ", "))

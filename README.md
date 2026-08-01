@@ -28,9 +28,9 @@ Single static binary, no runtime dependencies.
 ## Setup (you do this once, not the agent)
 
 ```sh
-./proxz login jira       --url https://jira.corp
-./proxz login confluence --url https://confluence.corp
-./proxz login bitbucket  --url https://bitbucket.corp
+./proxz login jira       https://jira.corp
+./proxz login confluence https://confluence.corp
+./proxz login bitbucket  https://bitbucket.corp
 ```
 
 Each prompts for a PAT without echoing it, so the token never lands on screen
@@ -49,8 +49,8 @@ proxz sites          # list configured sites (never prints tokens)
 proxz logout jira    # remove a site
 ```
 
-Flags for `get`: `--pretty`, `--max-bytes` (default 20 MiB), `--timeout`
-(default 30s), `--accept` (default `application/json`).
+No flags. 30s timeout, `Accept: application/json`.
+Pipe to `jq` if you want it formatted.
 
 The response body goes to stdout; errors go to stderr with a non-zero exit.
 On an HTTP error the body is still printed, since the API's own error message
@@ -62,8 +62,8 @@ Enforced, and covered by tests:
 
 - **GET only.** There is no code path that issues another method. `proxz post
   ...` fails at argument parsing, before any network call.
-- **Path allowlist.** Only paths under `/rest/` are permitted (configurable per
-  site with `--prefixes`). Absolute URLs, protocol-relative `//host/...`, and
+- **Path allowlist.** Only paths under `/rest/` are permitted (to change them, edit `allowed_prefixes`
+  in the config). Absolute URLs, protocol-relative `//host/...`, and
   `..` traversal are all rejected.
 - **No cross-host redirects.** The `Authorization` header can never be replayed
   to a host other than the configured one.
