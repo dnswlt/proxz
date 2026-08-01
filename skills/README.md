@@ -35,6 +35,16 @@ Copilot loads the skill only when a task looks relevant, based on the
 The skill deliberately tells the agent *not* to run `proxz login` itself, since
 that would mean handling a token.
 
+## Stopping the confirmation prompts
+
+A bare `/rest/api/...` argument reads as an absolute filesystem path, so some
+harnesses stop and ask. The skill therefore passes whole URLs, which are
+unambiguous.
+
+If prompts persist, allowlist the command: Copilot CLI takes
+`--allow-tool 'shell(proxz)'`, VS Code has an auto-approve list. proxz cannot
+write or reach an unconfigured host, so approving it once is safe.
+
 ## Alternative: always-on instructions
 
 If you would rather have the rules apply to every request instead of only

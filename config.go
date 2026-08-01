@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"sort"
@@ -61,6 +62,46 @@ func (c *Config) site(name string) (*Site, error) {
 			name, strings.Join(c.siteNames(), ", "))
 	}
 	return s, nil
+}
+
+// siteForURL resolves a full URL against the configured sites, returning the
+// site it belongs to and the path relative to that site's base URL. It lets
+// callers paste a whole REST URL instead of splitting it into site and path.
+func (c *Config) siteForURL(raw string) (*Site, string, error) {
+	u, err := url.Parse(raw)
+	if err != nil {
+		return nil, "", fmt.Errorf("invalid URL %q: %w", raw, err)
+	}
+	if u.Scheme == "" || u.Host == "" {
+		return nil, "", fmt.Errorf("%q is not a full URL; use: proxz get <site> <path>", raw)
+	}
+	// Longest matching base URL wins, so a site under a context path such as
+	// https://corp/jira beats one configured at the bare host.
+	var best *Site
+	var bestBase string
+	for _, name := range c.siteNames() {
+		s := c.Sites[name]
+		b, err := url.Parse(s.BaseURL)
+		if err != nil || b.Scheme != u.Scheme || b.Host != u.Host {
+			continue
+		}
+		base := strings.TrimSuffix(b.Path, "/")
+		if !strings.HasPrefix(u.Path, base+"/") {
+			continue
+		}
+		if best == nil || len(base) > len(bestBase) {
+			best, bestBase = s, base
+		}
+	}
+	if best == nil {
+		return nil, "", fmt.Errorf("no configured site matches %s://%s; run 'proxz sites' to see what is configured",
+			u.Scheme, u.Host)
+	}
+	rel := strings.TrimPrefix(u.Path, bestBase)
+	if u.RawQuery != "" {
+		rel += "?" + u.RawQuery
+	}
+	return best, rel, nil
 }
 
 // configPath resolves the config location, honouring PROXZ_CONFIG and

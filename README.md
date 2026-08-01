@@ -40,14 +40,22 @@ with `PROXZ_CONFIG` or `XDG_CONFIG_HOME`), mode `0600`.
 ## Usage
 
 ```sh
+proxz get https://jira.corp/rest/api/2/issue/PROJ-123
+proxz get 'https://jira.corp/rest/api/2/search?jql=project%3DFOO&maxResults=50'
+
+# or name the site explicitly, if you would rather not repeat the host
 proxz get jira       /rest/api/2/issue/PROJ-123
-proxz get jira       '/rest/api/2/search?jql=project%3DFOO&maxResults=50'
 proxz get confluence '/rest/api/content/12345?expand=body.storage'
 proxz get bitbucket  /rest/api/1.0/projects/FOO/repos
 
 proxz sites          # list configured sites (never prints tokens)
 proxz logout jira    # remove a site
 ```
+
+A whole URL works as well as a site plus path: proxz matches the URL against
+the configured sites (longest base URL wins, so context paths behave) and
+refuses any host it does not recognise. The `/rest/` allowlist applies either
+way.
 
 No flags. 30s timeout.
 Pipe to `jq` if you want it formatted.

@@ -17,14 +17,15 @@ import (
 const usage = `proxz - read-only proxy for Jira/Confluence/Bitbucket Data Center REST APIs
 
 Usage:
-  proxz get <site> <path>      Perform a GET against a configured site
+  proxz get <url>              Perform a GET; the site is derived from the URL
+  proxz get <site> <path>      Same, naming the site explicitly
   proxz sites                  List configured sites
   proxz login <site> <url>     Store a personal access token for a site
   proxz logout <site>          Remove a site
 
 Examples:
-  proxz get jira /rest/api/2/issue/PROJ-123
-  proxz get confluence '/rest/api/content/12345?expand=body.storage'
+  proxz get https://jira.corp/rest/api/2/issue/PROJ-123
+  proxz get 'https://wiki.corp/rest/api/content/12345?expand=body.storage'
   proxz get bitbucket /rest/api/1.0/projects/FOO/repos
 `
 
@@ -60,18 +61,26 @@ func run(args []string) error {
 }
 
 func cmdGet(args []string) error {
-	if len(args) != 2 {
-		return fmt.Errorf("usage: proxz get <site> <path>")
-	}
 	cfg, err := loadConfig()
 	if err != nil {
 		return err
 	}
-	site, err := cfg.site(args[0])
+	var site *Site
+	var path string
+	switch len(args) {
+	case 1:
+		// A whole URL: work out which site it belongs to.
+		site, path, err = cfg.siteForURL(args[0])
+	case 2:
+		site, err = cfg.site(args[0])
+		path = args[1]
+	default:
+		return fmt.Errorf("usage: proxz get <url>\n   or: proxz get <site> <path>")
+	}
 	if err != nil {
 		return err
 	}
-	return fetch(site, args[1], os.Stdout)
+	return fetch(site, path, os.Stdout)
 }
 
 func cmdSites(args []string) error {

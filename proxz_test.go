@@ -259,3 +259,60 @@ func TestUsingBuildKey(t *testing.T) {
 		t.Error("usingBuildKey() = false with a buildKey set")
 	}
 }
+
+func TestSiteForURL(t *testing.T) {
+	cfg := &Config{Sites: map[string]*Site{
+		"jira":       {BaseURL: "https://jira.corp"},
+		"confluence": {BaseURL: "https://wiki.corp"},
+		"ctx":        {BaseURL: "https://corp.example/bitbucket"},
+		"root":       {BaseURL: "https://corp.example"},
+	}}
+	tests := []struct {
+		raw      string
+		wantBase string
+		wantPath string
+	}{
+		{"https://jira.corp/rest/api/2/issue/PROJ-1", "https://jira.corp", "/rest/api/2/issue/PROJ-1"},
+		{"https://wiki.corp/rest/api/content/1?expand=body.storage", "https://wiki.corp", "/rest/api/content/1?expand=body.storage"},
+		// The context-path site must win over the one at the bare host.
+		{"https://corp.example/bitbucket/rest/api/1.0/projects", "https://corp.example/bitbucket", "/rest/api/1.0/projects"},
+		{"https://corp.example/rest/api/2/myself", "https://corp.example", "/rest/api/2/myself"},
+	}
+	for _, tt := range tests {
+		site, path, err := cfg.siteForURL(tt.raw)
+		if err != nil {
+			t.Errorf("siteForURL(%q): unexpected error %v", tt.raw, err)
+			continue
+		}
+		if site.BaseURL != tt.wantBase {
+			t.Errorf("siteForURL(%q) site = %q, want %q", tt.raw, site.BaseURL, tt.wantBase)
+		}
+		if path != tt.wantPath {
+			t.Errorf("siteForURL(%q) path = %q, want %q", tt.raw, path, tt.wantPath)
+		}
+	}
+
+	for _, raw := range []string{
+		"https://unknown.corp/rest/api/2/myself", // host not configured
+		"http://jira.corp/rest/api/2/myself",     // scheme differs from the configured https
+		"/rest/api/2/myself",                     // not a URL
+		"jira",                                   // not a URL
+	} {
+		if _, _, err := cfg.siteForURL(raw); err == nil {
+			t.Errorf("siteForURL(%q) succeeded, want an error", raw)
+		}
+	}
+}
+
+// TestGetByURLEnforcesPrefixes checks that arriving via a full URL is subject
+// to exactly the same allowlist as the two-argument form.
+func TestGetByURLEnforcesPrefixes(t *testing.T) {
+	cfg := &Config{Sites: map[string]*Site{"jira": {BaseURL: "https://jira.corp"}}}
+	site, path, err := cfg.siteForURL("https://jira.corp/secure/admin")
+	if err != nil {
+		t.Fatalf("siteForURL: %v", err)
+	}
+	if _, err := checkPath(site, path); err == nil {
+		t.Error("a URL outside the allowed prefixes must still be rejected")
+	}
+}

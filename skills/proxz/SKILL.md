@@ -16,22 +16,29 @@ one.
 ## Commands
 
 ```sh
-proxz get <site> <path>    # perform a GET; response body goes to stdout
-proxz sites                # list configured site names and their base URLs
+proxz get <url>            # perform a GET; response body goes to stdout
+proxz sites                # list configured sites and their base URLs
 ```
 
-Run `proxz sites` first if you do not know which site names exist. They are
-short labels chosen at setup, typically `jira`, `confluence`, `bitbucket`.
-
-The path is everything after the base URL and must start with `/rest/`.
-Quote it when it contains a query string:
+**Pass a whole URL.** proxz works out which configured site it belongs to and
+refuses any host it does not recognise. Quote the URL when it contains a query
+string:
 
 ```sh
-proxz get jira /rest/api/2/issue/PROJ-123
-proxz get jira '/rest/api/2/search?jql=project%3DPROJ%20AND%20status%3DOpen&maxResults=50'
-proxz get confluence '/rest/api/content/12345?expand=body.storage'
-proxz get bitbucket /rest/api/1.0/projects/PROJ/repos
+proxz get https://jira.corp/rest/api/2/issue/PROJ-123
+proxz get 'https://jira.corp/rest/api/2/search?jql=project%3DPROJ%20AND%20status%3DOpen&maxResults=50'
+proxz get 'https://wiki.corp/rest/api/content/12345?expand=body.storage'
+proxz get https://bitbucket.corp/rest/api/1.0/projects/PROJ/repos
 ```
+
+Run `proxz sites` to learn the base URLs. The tables below list paths only, so
+join them onto the right base URL from that output.
+
+A site name plus a path also works — `proxz get jira /rest/api/2/issue/PROJ-123`
+— but prefer the URL form. A bare `/rest/...` argument looks like a filesystem
+path and tends to make agent harnesses stop and ask for confirmation.
+
+Everything after the base URL must start with `/rest/`, in either form.
 
 Output is the response body unchanged — JSON for most endpoints, plain bytes
 for things like raw files and diffs. These APIs are verbose: a single Jira
@@ -39,7 +46,7 @@ issue is tens of kilobytes, most of it irrelevant. Narrow the request itself
 wherever the API allows it, rather than fetching everything and discarding it:
 
 ```sh
-proxz get jira '/rest/api/2/issue/PROJ-123?fields=summary,status,assignee'
+proxz get 'https://jira.corp/rest/api/2/issue/PROJ-123?fields=summary,status,assignee'
 ```
 
 Jira takes `fields`, Confluence takes `expand` (request only the expansions you
@@ -47,7 +54,7 @@ need), and every list endpoint takes a page size. If you still need to reshape
 what comes back and `jq` is available, pipe to it:
 
 ```sh
-proxz get jira '/rest/api/2/issue/PROJ-123?fields=summary,status' | jq '{key, summary: .fields.summary}'
+proxz get 'https://jira.corp/rest/api/2/issue/PROJ-123?fields=summary,status' | jq '{key, summary: .fields.summary}'
 ```
 
 ## Useful endpoints
@@ -90,8 +97,8 @@ To read a file at a specific branch, tag or commit, add `at`. Without it you
 get the default branch:
 
 ```sh
-proxz get bitbucket '/rest/api/1.0/projects/PROJ/repos/my-repo/raw/src/main.go?at=refs/heads/main'
-proxz get bitbucket '/rest/api/1.0/projects/PROJ/repos/my-repo/raw/README.md?at=8f4c2a1'
+proxz get 'https://bitbucket.corp/rest/api/1.0/projects/PROJ/repos/my-repo/raw/src/main.go?at=refs/heads/main'
+proxz get 'https://bitbucket.corp/rest/api/1.0/projects/PROJ/repos/my-repo/raw/README.md?at=8f4c2a1'
 ```
 
 **Prefer `raw` for reading a file.** It returns the file bytes as-is, with no
@@ -104,7 +111,7 @@ you use it, pass `limit` and check `isLastPage` before concluding you have seen
 the whole file:
 
 ```sh
-proxz get bitbucket '/rest/api/1.0/projects/PROJ/repos/my-repo/browse/src/main.go?limit=2000'
+proxz get 'https://bitbucket.corp/rest/api/1.0/projects/PROJ/repos/my-repo/browse/src/main.go?limit=2000'
 ```
 
 Pagination parameters differ by product, and mixing them up silently returns a
@@ -123,6 +130,7 @@ is complete.
 | --- | --- |
 | `unknown command "post"` | proxz is read-only; there is no way to write. Stop and tell the user what you would have changed. |
 | `path ... is outside the allowed prefixes` | The path must begin with `/rest/`. A URL copied from the browser is not an API path: Jira's `/browse/PROJ-123` is `/rest/api/2/issue/PROJ-123`, and Confluence's `/display/SPACE/Title` is `/rest/api/content?spaceKey=SPACE&title=Title`. |
+| `no configured site matches https://host` | That host is not set up. Run `proxz sites` and use one of the base URLs listed. |
 | `unknown site "x"` | Run `proxz sites` and use one of the listed names. |
 | `no sites configured` | Setup has not been done. Ask the user to run `proxz login <site> <url>`; do not attempt it yourself. |
 | `returned 404` | Wrong id, key, or path. The response body usually explains. |
