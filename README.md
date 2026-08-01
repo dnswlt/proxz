@@ -62,6 +62,13 @@ No flags, 30s timeout. The response body goes to stdout unmodified; pipe to
 error the body is still printed, since the API's own error message is usually
 the useful part.
 
+## Agent skill
+
+[`skills/`](skills/) contains an agent skill covering the endpoints worth
+knowing per product, attachments, pagination, and error messages. Agent Skills
+are an open format, so it works in Claude Code, Copilot and anything else
+implementing the spec. Installation: [`skills/README.md`](skills/README.md).
+
 ## Security properties
 
 Enforced, and covered by tests:
@@ -96,13 +103,6 @@ three. What they cannot do is stumble over a plaintext secret.
 
 Keep the config and key files out of git and at mode 0600. If you need a real
 guarantee, use an OS keychain and accept the portability cost.
-
-## Agent skill
-
-[`skills/`](skills/) contains an agent skill covering the endpoints worth
-knowing per product, attachments, pagination, and error messages. Agent Skills
-are an open format, so it works in Claude Code, Copilot and anything else
-implementing the spec. Installation: [`skills/README.md`](skills/README.md).
 
 ## Tests
 
