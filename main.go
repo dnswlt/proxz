@@ -9,6 +9,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"io"
 	"net/http"
@@ -71,6 +72,15 @@ func run(args []string) error {
 }
 
 func cmdMethod(method string, args []string) error {
+	fs := flag.NewFlagSet(strings.ToLower(method), flag.ContinueOnError)
+	bodyFile := fs.String("body-file", "", "file holding the request body, or - for stdin")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	args = fs.Args()
+	if *bodyFile != "" && (method == http.MethodGet || method == http.MethodHead) {
+		return fmt.Errorf("%s takes no request body", method)
+	}
 	cfg, err := loadConfig()
 	if err != nil {
 		return err
@@ -90,28 +100,32 @@ func cmdMethod(method string, args []string) error {
 	if err != nil {
 		return err
 	}
-	body, err := readBody(method)
+	body, err := readBody(*bodyFile)
 	if err != nil {
 		return err
 	}
 	return fetch(method, site, path, body, os.Stdout)
 }
 
-// readBody reads a request payload from stdin for the methods that take one.
-// A terminal is treated as no body: `proxz delete <url>` typed at a prompt
-// would otherwise hang waiting for EOF rather than issuing the request.
-func readBody(method string) ([]byte, error) {
-	if method == http.MethodGet || method == http.MethodHead {
+// readBody loads the request payload named by --body-file. No flag means no
+// body; "-" reads stdin.
+func readBody(bodyFile string) ([]byte, error) {
+	switch bodyFile {
+	case "":
 		return nil, nil
+	case "-":
+		body, err := io.ReadAll(os.Stdin)
+		if err != nil {
+			return nil, fmt.Errorf("reading request body from stdin: %w", err)
+		}
+		return body, nil
+	default:
+		body, err := os.ReadFile(bodyFile)
+		if err != nil {
+			return nil, fmt.Errorf("reading request body: %w", err)
+		}
+		return body, nil
 	}
-	if term.IsTerminal(int(os.Stdin.Fd())) {
-		return nil, nil
-	}
-	body, err := io.ReadAll(os.Stdin)
-	if err != nil {
-		return nil, fmt.Errorf("reading request body from stdin: %w", err)
-	}
-	return body, nil
 }
 
 func cmdSites(args []string) error {

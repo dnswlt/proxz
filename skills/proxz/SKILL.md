@@ -94,14 +94,13 @@ Only if `proxz methods` lists more than `GET`. If it lists `GET` alone, this
 build cannot write: do the read-only part, report what change is needed, and
 leave it to the user.
 
-The body is read from stdin and sent as `application/json`. Redirect a file in
-for anything multi-line — inline quoting is where these calls usually break.
+Write the body to a file and pass `--body-file`; it is sent as
+`application/json`. Prefer this over shell quoting, which is where these calls
+usually break. `--body-file -` reads stdin, and no flag means no body.
 
 ```sh
-echo '{"body":"Fixed in 8f4c2a1"}' |
-  proxz post https://jira.corp/rest/api/2/issue/PROJ-123/comment
-
-proxz put https://wiki.corp/rest/api/content/12345 < page.json
+proxz post --body-file comment.json https://jira.corp/rest/api/2/issue/PROJ-123/comment
+proxz put --body-file page.json https://wiki.corp/rest/api/content/12345
 ```
 
 | Goal | Request |

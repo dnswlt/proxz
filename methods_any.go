@@ -6,8 +6,8 @@ import "fmt"
 
 const (
 	usageTagline    = "proxz - proxy for Jira/Confluence/Bitbucket Data Center REST APIs (writes enabled)"
-	usageWriteVerbs = "  proxz post|put|patch|delete <url>\n" +
-		"                               Same, with a JSON body read from stdin\n"
+	usageWriteVerbs = "  proxz post|put|patch|delete [--body-file <path>] <url>\n" +
+		"                               Same; --body-file - reads the body from stdin\n"
 )
 
 func checkMethodAllowed(method string) error {

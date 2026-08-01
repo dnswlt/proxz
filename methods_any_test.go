@@ -6,6 +6,8 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -89,13 +91,41 @@ func TestWritesObeyPathAllowlist(t *testing.T) {
 	}
 }
 
-// readBody must not block on a terminal, and must not attach a body to a GET.
-func TestReadBodySkipsGet(t *testing.T) {
-	body, err := readBody(http.MethodGet)
+func TestReadBody(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "body.json")
+	const payload = `{"body":"from a file"}`
+	if err := os.WriteFile(path, []byte(payload), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	body, err := readBody("")
 	if err != nil {
-		t.Fatalf("readBody: %v", err)
+		t.Fatalf("readBody(\"\"): %v", err)
 	}
 	if body != nil {
-		t.Errorf("readBody(GET) = %q, want nil", body)
+		t.Errorf("no --body-file should mean no body, got %q", body)
+	}
+
+	body, err = readBody(path)
+	if err != nil {
+		t.Fatalf("readBody(%q): %v", path, err)
+	}
+	if string(body) != payload {
+		t.Errorf("body = %q, want %q", body, payload)
+	}
+
+	if _, err := readBody(filepath.Join(t.TempDir(), "absent.json")); err == nil {
+		t.Error("a missing body file should be an error, not an empty body")
+	}
+}
+
+// A body on a read is a mistake worth naming rather than silently dropping.
+func TestGetRejectsBodyFile(t *testing.T) {
+	err := cmdMethod(http.MethodGet, []string{"--body-file", "x.json", "https://jira.corp/rest/api/2/myself"})
+	if err == nil {
+		t.Fatal("expected GET with --body-file to be refused")
+	}
+	if !strings.Contains(err.Error(), "no request body") {
+		t.Errorf("error = %q, want it to say GET takes no body", err)
 	}
 }

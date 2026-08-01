@@ -75,14 +75,15 @@ not. The choice is a build tag rather than a config flag because a config flag
 is something an agent can edit.
 
 ```sh
-echo '{"body":"Fixed in 8f4c2a1"}' |
-  proxz post https://jira.corp/rest/api/2/issue/PROJ-123/comment
+proxz post --body-file comment.json https://jira.corp/rest/api/2/issue/PROJ-123/comment
 ```
 
-The body comes from stdin and is sent as `application/json`. Everything else
-still applies: same path allowlist, same host check, same refusal to follow a
-redirect off-host. `proxz methods` prints what the binary you have permits, so
-an agent can ask rather than guess.
+The body comes from `--body-file` and is sent as `application/json`; pass `-`
+to read stdin instead. Without the flag there is no body, which is what
+endpoints like Bitbucket's approve want. Everything else still applies: same
+path allowlist, same host check, same refusal to follow a redirect off-host.
+`proxz methods` prints what the binary you have permits, so an agent can ask
+rather than guess.
 
 ## Agent skill
 
