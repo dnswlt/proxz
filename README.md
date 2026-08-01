@@ -49,7 +49,7 @@ proxz sites          # list configured sites (never prints tokens)
 proxz logout jira    # remove a site
 ```
 
-No flags. 30s timeout, `Accept: application/json`.
+No flags. 30s timeout.
 Pipe to `jq` if you want it formatted.
 
 The response body goes to stdout; errors go to stderr with a non-zero exit.

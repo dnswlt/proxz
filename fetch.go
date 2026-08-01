@@ -102,7 +102,10 @@ func fetch(site *Site, rawPath string, w io.Writer) error {
 		return err
 	}
 	req.Header.Set("Authorization", "Bearer "+pat)
-	req.Header.Set("Accept", "application/json")
+	// These APIs return JSON by default, so asking for it specifically buys
+	// nothing and would risk a 406 on endpoints serving something else, such
+	// as Bitbucket's raw file and diff resources.
+	req.Header.Set("Accept", "*/*")
 	req.Header.Set("User-Agent", "proxz/1.0")
 
 	resp, err := newClient(requestTimeout).Do(req)
