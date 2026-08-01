@@ -17,6 +17,7 @@ one.
 
 ```sh
 proxz get <url>            # perform a GET; response body goes to stdout
+proxz methods              # list which HTTP methods are permitted by this build
 proxz sites                # list configured sites and their base URLs
 ```
 
@@ -167,7 +168,7 @@ is complete.
 
 | Message | Meaning |
 | --- | --- |
-| `unknown command "post"` | proxz is read-only; there is no way to write. Stop and tell the user what you would have changed. |
+| `unknown command "post"` | The current build of proxz is read-only. |
 | `path ... is outside the allowed prefixes` | The path must begin with `/rest/`. A URL copied from the browser is not an API path: Jira's `/browse/PROJ-123` is `/rest/api/2/issue/PROJ-123`, and Confluence's `/display/SPACE/Title` is `/rest/api/content?spaceKey=SPACE&title=Title`. |
 | `no configured site matches https://host` | That host is not set up. Run `proxz sites` and use one of the base URLs listed. |
 | `unknown site "x"` | Run `proxz sites` and use one of the listed names. |
@@ -182,6 +183,4 @@ is complete.
   contain nothing useful to you.
 - **Never** try to reach these hosts by another route — `curl`, `wget`,
   `requests`, a browser tool — whether or not proxz just failed.
-- proxz cannot create, update, transition, comment on, or delete anything. If a
-  task needs a write, do the read-only part, then report exactly what change is
-  needed and let the user make it.
+- Check capabilities using `proxz methods`. If it returns only `GET`, you cannot create, update, transition, comment on, or delete anything.

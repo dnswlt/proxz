@@ -19,6 +19,7 @@ const usage = `proxz - read-only proxy for Jira/Confluence/Bitbucket Data Center
 Usage:
   proxz get <url>              Perform a GET; the site is derived from the URL
   proxz get <site> <path>      Same, naming the site explicitly
+  proxz methods                List HTTP methods permitted by this build
   proxz sites                  List configured sites
   proxz login <site> <url>     Store a personal access token for a site
   proxz logout <site>          Remove a site
@@ -42,10 +43,15 @@ func run(args []string) error {
 		return nil
 	}
 	switch args[0] {
-	case "get":
-		return cmdGet(args[1:])
+	case "get", "post", "put", "patch", "delete", "head", "options":
+		if err := checkMethodAllowed(args[0]); err != nil {
+			return err
+		}
+		return cmdMethod(strings.ToUpper(args[0]), args[1:])
 	case "sites":
 		return cmdSites(args[1:])
+	case "methods":
+		return cmdMethods(args[1:])
 	case "login":
 		return cmdLogin(args[1:])
 	case "logout":
@@ -60,7 +66,7 @@ func run(args []string) error {
 	}
 }
 
-func cmdGet(args []string) error {
+func cmdMethod(method string, args []string) error {
 	cfg, err := loadConfig()
 	if err != nil {
 		return err
@@ -80,7 +86,7 @@ func cmdGet(args []string) error {
 	if err != nil {
 		return err
 	}
-	return fetch(site, path, os.Stdout)
+	return fetch(method, site, path, os.Stdout)
 }
 
 func cmdSites(args []string) error {
@@ -99,6 +105,14 @@ func cmdSites(args []string) error {
 		s := cfg.Sites[name]
 		fmt.Printf("%-12s %s  [%s]\n", name, s.BaseURL, strings.Join(s.prefixes(), " "))
 	}
+	return nil
+}
+
+func cmdMethods(args []string) error {
+	if len(args) > 0 {
+		return fmt.Errorf("usage: proxz methods")
+	}
+	printAllowedMethods()
 	return nil
 }
 

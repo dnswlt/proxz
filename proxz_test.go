@@ -144,7 +144,7 @@ func TestFetchSendsGetWithBearer(t *testing.T) {
 	site := &Site{BaseURL: srv.URL, Token: token}
 
 	var out strings.Builder
-	err = fetch(site, "/rest/api/2/issue/PROJ-123?fields=summary", &out)
+	err = fetch(http.MethodGet, site, "/rest/api/2/issue/PROJ-123?fields=summary", &out)
 	if err != nil {
 		t.Fatalf("fetch: %v", err)
 	}
@@ -170,7 +170,7 @@ func TestFetchReportsHTTPError(t *testing.T) {
 
 	site := &Site{BaseURL: srv.URL, Token: "plain"}
 	var out strings.Builder
-	err := fetch(site, "/rest/api/2/issue/NOPE-1", &out)
+	err := fetch(http.MethodGet, site, "/rest/api/2/issue/NOPE-1", &out)
 	if err == nil {
 		t.Fatal("expected an error for a 404 response")
 	}
@@ -198,7 +198,7 @@ func TestFetchRefusesCrossHostRedirect(t *testing.T) {
 
 	site := &Site{BaseURL: srv.URL, Token: "plain"}
 	var out strings.Builder
-	err := fetch(site, "/rest/api/2/myself", &out)
+	err := fetch(http.MethodGet, site, "/rest/api/2/myself", &out)
 	if err == nil {
 		t.Fatal("expected the cross-host redirect to be refused")
 	}
@@ -208,6 +208,9 @@ func TestFetchRefusesCrossHostRedirect(t *testing.T) {
 }
 
 func TestRunRejectsNonGetVerbs(t *testing.T) {
+	if checkMethodAllowed("post") == nil {
+		t.Skip("skipping test when any_methods build tag is enabled")
+	}
 	for _, verb := range []string{"post", "put", "delete", "patch"} {
 		err := run([]string{verb, "jira", "/rest/api/2/issue"})
 		if err == nil {

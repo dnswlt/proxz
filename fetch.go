@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"path"
 	"strings"
 	"time"
@@ -73,8 +74,8 @@ func newClient(timeout time.Duration) *http.Client {
 
 const requestTimeout = 30 * time.Second
 
-// fetch performs the GET request and streams the response body to w.
-func fetch(site *Site, rawPath string, w io.Writer) error {
+// fetch performs the request and streams the response body to w.
+func fetch(method string, site *Site, rawPath string, w io.Writer) error {
 	rel, err := checkPath(site, rawPath)
 	if err != nil {
 		return err
@@ -95,9 +96,11 @@ func fetch(site *Site, rawPath string, w io.Writer) error {
 		return err
 	}
 
-	// http.NewRequest with a hardcoded GET: there is no code path in proxz
-	// that issues any other method.
-	req, err := http.NewRequest(http.MethodGet, target.String(), nil)
+	var body io.Reader
+	if method != http.MethodGet && method != http.MethodHead {
+		body = os.Stdin
+	}
+	req, err := http.NewRequest(method, target.String(), body)
 	if err != nil {
 		return err
 	}
