@@ -5,30 +5,33 @@ A read-only proxy for Confluence, Jira and Bitbucket **Data Center** REST APIs.
 It lets an LLM agent read from those systems without ever handling a personal
 access token, and without being able to issue anything but a `GET`.
 
+It does the job of an MCP server without the server: any agent that can run a
+shell command can use it.
+
 ## Build
 
+Requires Go 1.25 or later.
+
 ```sh
+git clone https://github.com/dnswlt/proxz.git
+cd proxz
 make
+cp proxz ~/bin/    # or anywhere on your PATH
 ```
 
-Single static binary, no runtime dependencies.
-
-The first build generates a random 32-byte key at `~/.config/proxz/build.key`
-(mode 0600) and links it into the binary. Later builds reuse it, so stored
-tokens keep working. The key lives outside this directory and is never
-committed. If you lose it, rebuild and re-run `proxz login <site>`.
-
-A plain `go build` also works, but falls back to a key published in this repo,
-and `login` warns you about it. Do not put a real PAT in a keyless build.
+The result is a single static binary with no runtime dependencies. Build with
+`make`, not `go build`: only `make` links in the machine-local key that
+encrypts stored tokens (see
+[Token storage](#token-storage-and-its-limits)).
 
 ## Setup
 
-Done once by a human, not by the agent:
+Configure each site once:
 
 ```sh
-./proxz login jira       https://jira.corp
-./proxz login confluence https://confluence.corp
-./proxz login bitbucket  https://bitbucket.corp
+proxz login jira       https://jira.corp
+proxz login confluence https://confluence.corp
+proxz login bitbucket  https://bitbucket.corp
 ```
 
 Each prompts for a PAT without echoing it, so the token never lands on screen
@@ -89,7 +92,15 @@ Enforced, and covered by tests:
 ### Token storage, and its limits
 
 Tokens are stored AES-GCM-encrypted under a key generated on your machine and
-linked into the binary at build time. The key is not in this repo.
+linked into the binary at build time. The first `make` writes a random 32-byte
+key to `~/.config/proxz/build.key` (mode 0600); later builds reuse it, so
+stored tokens survive a rebuild. The key stays outside the working tree and is
+never committed — it is not in this repo. Lose it and you rebuild and re-run
+`proxz login <site>`.
+
+A plain `go build` produces a working binary, but falls back to a key published
+in this repo, and `login` warns you about it. Do not put a real PAT in a
+keyless build.
 
 The threat this addresses is narrow: an agent with broad filesystem read access
 cannot `cat config.json` and walk away with a usable PAT. It sees base64 noise.
