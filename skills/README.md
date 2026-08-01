@@ -1,8 +1,8 @@
 # proxz agent skill
 
 A drop-in [agent skill](https://docs.github.com/en/copilot/concepts/agents/about-agent-skills)
-that teaches Copilot to read Jira, Confluence and Bitbucket Data Center through
-`proxz` instead of reaching for credentials or `curl`.
+that teaches an agent to work with Jira, Confluence and Bitbucket Data Center
+through `proxz` instead of reaching for credentials or `curl`.
 
 Agent Skills are an open format, so the same directory works in Copilot, Claude
 Code and anything else that implements the spec.

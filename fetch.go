@@ -1,12 +1,12 @@
 package main
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
-	"os"
 	"path"
 	"strings"
 	"time"
@@ -74,8 +74,9 @@ func newClient(timeout time.Duration) *http.Client {
 
 const requestTimeout = 30 * time.Second
 
-// fetch performs the request and streams the response body to w.
-func fetch(method string, site *Site, rawPath string, w io.Writer) error {
+// fetch performs the request and streams the response body to w. body is the
+// request payload, empty for GET and for any method invoked without one.
+func fetch(method string, site *Site, rawPath string, body []byte, w io.Writer) error {
 	rel, err := checkPath(site, rawPath)
 	if err != nil {
 		return err
@@ -96,15 +97,24 @@ func fetch(method string, site *Site, rawPath string, w io.Writer) error {
 		return err
 	}
 
-	var body io.Reader
-	if method != http.MethodGet && method != http.MethodHead {
-		body = os.Stdin
+	// A *bytes.Reader, rather than os.Stdin directly: it gives the request a
+	// Content-Length and a GetBody, so the body is not sent chunked (which
+	// reverse proxies in front of Data Center instances tend to reject) and can
+	// still be replayed if the server answers with a 307 or 308.
+	var rdr io.Reader
+	if len(body) > 0 {
+		rdr = bytes.NewReader(body)
 	}
-	req, err := http.NewRequest(method, target.String(), body)
+	req, err := http.NewRequest(method, target.String(), rdr)
 	if err != nil {
 		return err
 	}
 	req.Header.Set("Authorization", "Bearer "+pat)
+	// Go never sets Content-Type itself, and all three products answer a bodied
+	// request without one with 415.
+	if len(body) > 0 {
+		req.Header.Set("Content-Type", "application/json")
+	}
 	// These APIs return JSON by default, so asking for it specifically buys
 	// nothing and would risk a 406 on endpoints serving something else, such
 	// as Bitbucket's raw file and diff resources.

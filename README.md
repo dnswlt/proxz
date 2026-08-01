@@ -24,6 +24,9 @@ The result is a single static binary with no runtime dependencies. Build with
 encrypts stored tokens (see
 [Token storage](#token-storage-and-its-limits)).
 
+`make` produces a read-only binary. For a build that can also write, see
+[Writes](#writes).
+
 ## Setup
 
 Configure each site once:
@@ -65,6 +68,22 @@ No flags, 30s timeout. The response body goes to stdout unmodified; pipe to
 error the body is still printed, since the API's own error message is usually
 the useful part.
 
+## Writes
+
+`make build-any` compiles in `post`, `put`, `patch` and `delete`; `make` does
+not. The choice is a build tag rather than a config flag because a config flag
+is something an agent can edit.
+
+```sh
+echo '{"body":"Fixed in 8f4c2a1"}' |
+  proxz post https://jira.corp/rest/api/2/issue/PROJ-123/comment
+```
+
+The body comes from stdin and is sent as `application/json`. Everything else
+still applies: same path allowlist, same host check, same refusal to follow a
+redirect off-host. `proxz methods` prints what the binary you have permits, so
+an agent can ask rather than guess.
+
 ## Agent skill
 
 [`skills/`](skills/) contains an agent skill covering the endpoints worth
@@ -76,8 +95,10 @@ implementing the spec. Installation: [`skills/README.md`](skills/README.md).
 
 Enforced, and covered by tests:
 
-- **GET only.** There is no code path that issues another method. `proxz post
-  ...` fails at argument parsing, before any network call.
+- **GET only, unless built otherwise.** In a default build there is no code
+  path that issues another method: `proxz post ...` fails at argument parsing,
+  before any network call. A `make build-any` binary lifts this, and only this
+  — see [Writes](#writes).
 - **Path allowlist.** Only paths under `/rest/`, `/secure/attachment/` and
   `/download/attachments/` are permitted (to change them, edit
   `allowed_prefixes` in the config). Absolute URLs, protocol-relative

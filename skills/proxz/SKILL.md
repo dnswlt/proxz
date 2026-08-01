@@ -1,186 +1,148 @@
 ---
 name: proxz
-description: Read data from self-hosted Jira, Confluence, or Bitbucket Data Center through the proxz CLI. Use whenever a task needs issue details, JQL search results, Confluence page content, or repository files, branches and pull requests from an on-premise Atlassian instance.
+description: Read and update self-hosted Jira, Confluence and Bitbucket Data Center through the proxz CLI. Use whenever a task touches an on-premise Atlassian instance - issue details, JQL searches, page content, repo files, branches, pull requests, or writing comments, transitions and page edits - including when the user names only an issue key, page or repo.
 ---
 
-# Reading Atlassian Data Center data with proxz
+# Reading and writing Atlassian Data Center data with proxz
 
-`proxz` is a small CLI that performs authenticated **GET** requests against
-Jira, Confluence and Bitbucket Data Center. It holds the personal access
-tokens itself, so you never see, need, or ask for credentials.
-
-Use it instead of `curl`, `wget`, or any HTTP library for these hosts. A direct
-request will fail: you do not have the token, and you should not go looking for
-one.
-
-## Commands
+`proxz` performs authenticated requests against Jira, Confluence and Bitbucket
+Data Center. It holds the tokens itself, so you never see or need credentials.
+Use it instead of `curl`, `wget` or any HTTP library for these hosts: a direct
+request has no token and will fail.
 
 ```sh
-proxz get <url>            # perform a GET; response body goes to stdout
-proxz methods              # list which HTTP methods are permitted by this build
-proxz sites                # list configured sites and their base URLs
+proxz get <url>            # response body goes to stdout
+proxz sites                # configured sites and their base URLs
+proxz methods              # HTTP methods this build permits
 ```
 
-**Pass a whole URL.** proxz works out which configured site it belongs to and
-refuses any host it does not recognise. Quote the URL when it contains a query
-string:
+Pass whole URLs — proxz resolves the site and refuses unknown hosts. Quote
+anything with a query string. Run `proxz sites` for the base URLs; the tables
+below list paths only.
 
 ```sh
 proxz get https://jira.corp/rest/api/2/issue/PROJ-123
-proxz get 'https://jira.corp/rest/api/2/search?jql=project%3DPROJ%20AND%20status%3DOpen&maxResults=50'
 proxz get 'https://wiki.corp/rest/api/content/12345?expand=body.storage'
-proxz get https://bitbucket.corp/rest/api/1.0/projects/PROJ/repos
 ```
 
-Run `proxz sites` to learn the base URLs. The tables below list paths only, so
-join them onto the right base URL from that output.
-
-A site name plus a path also works — `proxz get jira /rest/api/2/issue/PROJ-123`
-— but prefer the URL form. A bare `/rest/...` argument looks like a filesystem
-path and tends to make agent harnesses stop and ask for confirmation.
-
-Everything after the base URL must start with `/rest/`, in either form — plus
-the two attachment download subtrees described under Attachments below.
-
-Output is the response body unchanged — JSON for most endpoints, plain bytes
-for things like raw files and diffs. These APIs are verbose: a single Jira
-issue is tens of kilobytes, most of it irrelevant. Narrow the request itself
-wherever the API allows it, rather than fetching everything and discarding it:
+These APIs are verbose — a single issue is tens of kilobytes. Narrow the
+request rather than fetching everything: Jira takes `fields`, Confluence takes
+`expand`, list endpoints take a page size. Pipe to `jq` to reshape.
 
 ```sh
 proxz get 'https://jira.corp/rest/api/2/issue/PROJ-123?fields=summary,status,assignee'
 ```
 
-Jira takes `fields`, Confluence takes `expand` (request only the expansions you
-need), and every list endpoint takes a page size. If you still need to reshape
-what comes back and `jq` is available, pipe to it:
+## Endpoints
 
-```sh
-proxz get 'https://jira.corp/rest/api/2/issue/PROJ-123?fields=summary,status' | jq '{key, summary: .fields.summary}'
-```
-
-## Useful endpoints
-
-Jira (`/rest/api/2/`):
+Jira:
 
 | Goal | Path |
 | --- | --- |
 | One issue | `/rest/api/2/issue/PROJ-123` |
-| Issue with only some fields | `/rest/api/2/issue/PROJ-123?fields=summary,status,assignee` |
-| Search by JQL | `/rest/api/2/search?jql=<url-encoded>&maxResults=50` |
-| Issue comments | `/rest/api/2/issue/PROJ-123/comment` |
-| Project metadata | `/rest/api/2/project/PROJ` |
+| JQL search | `/rest/api/2/search?jql=<url-encoded>&maxResults=50` |
+| Comments | `/rest/api/2/issue/PROJ-123/comment` |
+| Available transitions | `/rest/api/2/issue/PROJ-123/transitions` |
 | Attachment metadata | `/rest/api/2/attachment/10000` |
-| Current user | `/rest/api/2/myself` |
 
-Confluence (`/rest/api/`):
+Confluence:
 
 | Goal | Path |
 | --- | --- |
-| Page by id, with body | `/rest/api/content/12345?expand=body.storage` |
+| Page by id, with body | `/rest/api/content/12345?expand=body.storage,version` |
 | Page by space and title | `/rest/api/content?spaceKey=SPACE&title=Page+Title&expand=body.storage` |
 | Child pages | `/rest/api/content/12345/child/page` |
-| Search by CQL | `/rest/api/content/search?cql=<url-encoded>` |
+| CQL search | `/rest/api/content/search?cql=<url-encoded>` |
 | Attachments on a page | `/rest/api/content/12345/child/attachment` |
 
-Bitbucket (`/rest/api/1.0/`):
+Bitbucket:
 
 | Goal | Path |
 | --- | --- |
 | Repos in a project | `/rest/api/1.0/projects/PROJ/repos` |
-| One repo | `/rest/api/1.0/projects/PROJ/repos/my-repo` |
-| Open pull requests | `/rest/api/1.0/projects/PROJ/repos/my-repo/pull-requests?state=OPEN` |
+| Pull requests | `/rest/api/1.0/projects/PROJ/repos/my-repo/pull-requests?state=OPEN` |
 | One pull request | `/rest/api/1.0/projects/PROJ/repos/my-repo/pull-requests/42` |
 | PR diff | `/rest/api/1.0/projects/PROJ/repos/my-repo/pull-requests/42/diff` |
 | Branches | `/rest/api/1.0/projects/PROJ/repos/my-repo/branches` |
-| File contents | `/rest/api/1.0/projects/PROJ/repos/my-repo/raw/src/main.go` |
-| File contents as JSON lines | `/rest/api/1.0/projects/PROJ/repos/my-repo/browse/src/main.go` |
+| File contents | `/rest/api/1.0/projects/PROJ/repos/my-repo/raw/src/main.go?at=refs/heads/main` |
 | Directory listing | `/rest/api/1.0/projects/PROJ/repos/my-repo/files/src` |
 
-To read a file at a specific branch, tag or commit, add `at`. Without it you
-get the default branch:
+Prefer `raw` for file contents: it returns the bytes whole. `browse` returns
+the same content as a JSON `lines` array but is paginated, so a long file is
+silently truncated unless you pass `limit` and check `isLastPage`.
 
-```sh
-proxz get 'https://bitbucket.corp/rest/api/1.0/projects/PROJ/repos/my-repo/raw/src/main.go?at=refs/heads/main'
-proxz get 'https://bitbucket.corp/rest/api/1.0/projects/PROJ/repos/my-repo/raw/README.md?at=8f4c2a1'
-```
-
-**Prefer `raw` for reading a file.** It returns the file bytes as-is, with no
-JSON wrapper and no pagination, so what you get is the whole file.
-
-`browse` returns the same content as a JSON `lines` array of `{"text": ...}`
-objects. It is useful when you want structure, but it is **paginated like any
-other list**, so a long file is silently cut off at the default page size. If
-you use it, pass `limit` and check `isLastPage` before concluding you have seen
-the whole file:
-
-```sh
-proxz get 'https://bitbucket.corp/rest/api/1.0/projects/PROJ/repos/my-repo/browse/src/main.go?limit=2000'
-```
+Pagination parameters differ, and mixing them up returns a default page rather
+than an error: Jira uses `startAt`/`maxResults`, Confluence and Bitbucket use
+`start`/`limit`. All three report whether more remains.
 
 ## Attachments
 
-Attachment **bytes do not live under `/rest/`** in Jira or Confluence, and the
-download URL is not something you should construct by hand. Fetch the metadata
-first, take the URL out of it, then fetch that URL.
-
-Jira — the attachment id comes from the issue's `fields.attachment` array:
-
-```sh
-# 1. metadata; the "content" field holds the full download URL
-proxz get https://jira.corp/rest/api/2/attachment/10000
-
-# 2. fetch that URL verbatim
-proxz get 'https://jira.corp/secure/attachment/10000/screenshot.png' > screenshot.png
-```
-
-Confluence — list a page's attachments, then follow `_links.download`, which is
-relative and must be appended to the site's base URL:
+Attachment bytes are not under `/rest/`, and the download URL is not something
+to construct by hand. Fetch the metadata, then the URL it gives you: Jira's
+attachment metadata has a `content` field holding the full URL; Confluence's
+`child/attachment` listing has `_links.download`, which is relative to the base
+URL and whose query string is part of the address. Redirect to a file rather
+than letting binary content into your output.
 
 ```sh
-# 1. list attachments on page 12345 (add ?filename=x.pdf to narrow)
-proxz get https://wiki.corp/rest/api/content/12345/child/attachment
-
-# 2. base URL + the _links.download value
 proxz get 'https://wiki.corp/download/attachments/12345/design.pdf?version=1&modificationDate=1700000000000' > design.pdf
 ```
 
-Keep the whole query string on Confluence download links — `version` and
-`modificationDate` are part of how the file is addressed. Redirect to a file
-rather than letting binary content into your output.
+## Writing
 
-Bitbucket has no equivalent step: repository files come straight from `raw`,
-described above.
+Only if `proxz methods` lists more than `GET`. If it lists `GET` alone, this
+build cannot write: do the read-only part, report what change is needed, and
+leave it to the user.
 
-## Pagination
+The body is read from stdin and sent as `application/json`. Redirect a file in
+for anything multi-line — inline quoting is where these calls usually break.
 
-Pagination parameters differ by product, and mixing them up silently returns a
-default page rather than an error:
+```sh
+echo '{"body":"Fixed in 8f4c2a1"}' |
+  proxz post https://jira.corp/rest/api/2/issue/PROJ-123/comment
 
-- Jira: `startAt` and `maxResults`
-- Confluence: `start` and `limit`
-- Bitbucket: `start` and `limit` (default limit 25)
+proxz put https://wiki.corp/rest/api/content/12345 < page.json
+```
 
-All three report whether more results remain, so check before assuming a list
-is complete.
+| Goal | Request |
+| --- | --- |
+| Comment on an issue | POST `/rest/api/2/issue/PROJ-123/comment` — `{"body":"..."}` |
+| Transition an issue | POST `/rest/api/2/issue/PROJ-123/transitions` — `{"transition":{"id":"31"}}` |
+| Edit issue fields | PUT `/rest/api/2/issue/PROJ-123` — `{"fields":{"assignee":{"name":"charlie"}}}` |
+| Update a page | PUT `/rest/api/content/12345` — see below |
+| Comment on a PR | POST `/rest/api/1.0/projects/PROJ/repos/my-repo/pull-requests/42/comments` — `{"text":"..."}` |
+
+Transition ids come from the workflow, so they differ between projects. Read
+`/transitions` on the issue and use an id from that response.
+
+A Confluence update replaces the page, so the PUT must carry `id`, `type`,
+`title`, `space.key`, the full `body.storage`, and `version.number` set to the
+current number plus one. GET it with `?expand=body.storage,version` first; a
+stale version number gives a 409.
+
+```json
+{"id":"12345","type":"page","title":"Release checklist","space":{"key":"PLAT"},
+ "body":{"storage":{"value":"<p>...</p>","representation":"storage"}},
+ "version":{"number":7}}
+```
+
+Writes are not reversible here. Make the change the task asks for, one request
+at a time.
 
 ## Errors
 
 | Message | Meaning |
 | --- | --- |
-| `unknown command "post"` | The current build of proxz is read-only. |
-| `path ... is outside the allowed prefixes` | The path must begin with `/rest/`. A URL copied from the browser is not an API path: Jira's `/browse/PROJ-123` is `/rest/api/2/issue/PROJ-123`, and Confluence's `/display/SPACE/Title` is `/rest/api/content?spaceKey=SPACE&title=Title`. |
-| `no configured site matches https://host` | That host is not set up. Run `proxz sites` and use one of the base URLs listed. |
-| `unknown site "x"` | Run `proxz sites` and use one of the listed names. |
-| `no sites configured` | Setup has not been done. Ask the user to run `proxz login <site> <url>`; do not attempt it yourself. |
-| `returned 404` | Wrong id, key, or path. The response body usually explains. |
-| `returned 401`/`403` | The stored token lacks access, or has expired. Ask the user to re-run `proxz login`. |
+| `unknown command "post"` | This build is read-only. Report the change instead of attempting it another way. |
+| `path ... is outside the allowed prefixes` | A browser URL is not an API path: Jira's `/browse/PROJ-123` is `/rest/api/2/issue/PROJ-123`, Confluence's `/display/SPACE/Title` is `/rest/api/content?spaceKey=SPACE&title=Title`. |
+| `no configured site matches https://host` | Not set up. Run `proxz sites` and use a listed base URL. |
+| `no sites configured` | Ask the user to run `proxz login <site> <url>`; do not attempt it yourself. |
+| `returned 401`/`403` | The token lacks access or has expired. Ask the user to re-run `proxz login`. |
+| `returned 409` on a write | Someone changed it since you read it. Re-read and rebuild; do not resend the same body. |
 
 ## Rules
 
-- **Never** search for, read, print, or ask for API tokens. proxz handles
-  authentication. Files like `~/.config/proxz/config.json` are off-limits and
-  contain nothing useful to you.
-- **Never** try to reach these hosts by another route — `curl`, `wget`,
-  `requests`, a browser tool — whether or not proxz just failed.
-- Check capabilities using `proxz methods`. If it returns only `GET`, you cannot create, update, transition, comment on, or delete anything.
+- **Never** search for, read, print or ask for API tokens. proxz handles
+  authentication.
+- **Never** reach these hosts another way — `curl`, `wget`, `requests`, a
+  browser tool — whether or not proxz just failed.

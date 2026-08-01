@@ -144,7 +144,7 @@ func TestFetchSendsGetWithBearer(t *testing.T) {
 	site := &Site{BaseURL: srv.URL, Token: token}
 
 	var out strings.Builder
-	err = fetch(http.MethodGet, site, "/rest/api/2/issue/PROJ-123?fields=summary", &out)
+	err = fetch(http.MethodGet, site, "/rest/api/2/issue/PROJ-123?fields=summary", nil, &out)
 	if err != nil {
 		t.Fatalf("fetch: %v", err)
 	}
@@ -170,7 +170,7 @@ func TestFetchReportsHTTPError(t *testing.T) {
 
 	site := &Site{BaseURL: srv.URL, Token: "plain"}
 	var out strings.Builder
-	err := fetch(http.MethodGet, site, "/rest/api/2/issue/NOPE-1", &out)
+	err := fetch(http.MethodGet, site, "/rest/api/2/issue/NOPE-1", nil, &out)
 	if err == nil {
 		t.Fatal("expected an error for a 404 response")
 	}
@@ -198,7 +198,7 @@ func TestFetchRefusesCrossHostRedirect(t *testing.T) {
 
 	site := &Site{BaseURL: srv.URL, Token: "plain"}
 	var out strings.Builder
-	err := fetch(http.MethodGet, site, "/rest/api/2/myself", &out)
+	err := fetch(http.MethodGet, site, "/rest/api/2/myself", nil, &out)
 	if err == nil {
 		t.Fatal("expected the cross-host redirect to be refused")
 	}

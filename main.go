@@ -1,25 +1,29 @@
-// Command proxz is a read-only proxy for Confluence, Jira and Bitbucket Data
-// Center REST APIs.
+// Command proxz is a proxy for Confluence, Jira and Bitbucket Data Center REST
+// APIs.
 //
-// It exists so an LLM agent can fetch data from those systems without ever
-// handling a personal access token, and without being able to issue anything
-// but a GET. See README.md for the threat model.
+// It exists so an LLM agent can reach those systems without ever handling a
+// personal access token. By default it is read-only: only GET is compiled in,
+// and the other verbs fail at argument parsing. Building with the any_methods
+// tag permits the remaining HTTP methods; see methods_strict.go and
+// methods_any.go, and README.md for the threat model.
 package main
 
 import (
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"strings"
 
 	"golang.org/x/term"
 )
 
-const usage = `proxz - read-only proxy for Jira/Confluence/Bitbucket Data Center REST APIs
+const usage = usageTagline + `
 
 Usage:
   proxz get <url>              Perform a GET; the site is derived from the URL
   proxz get <site> <path>      Same, naming the site explicitly
-  proxz methods                List HTTP methods permitted by this build
+` + usageWriteVerbs + `  proxz methods                List HTTP methods permitted by this build
   proxz sites                  List configured sites
   proxz login <site> <url>     Store a personal access token for a site
   proxz logout <site>          Remove a site
@@ -60,9 +64,9 @@ func run(args []string) error {
 		fmt.Print(usage)
 		return nil
 	default:
-		// Being explicit here matters: the most likely caller is an LLM that
-		// guessed at a verb, and the error should teach it the rule.
-		return fmt.Errorf("unknown command %q; proxz only performs GET requests", args[0])
+		// A verb this build refuses is reported by checkMethodAllowed above,
+		// which states the rule; anything reaching here is not a verb at all.
+		return fmt.Errorf("unknown command %q; run 'proxz help'", args[0])
 	}
 }
 
@@ -86,7 +90,28 @@ func cmdMethod(method string, args []string) error {
 	if err != nil {
 		return err
 	}
-	return fetch(method, site, path, os.Stdout)
+	body, err := readBody(method)
+	if err != nil {
+		return err
+	}
+	return fetch(method, site, path, body, os.Stdout)
+}
+
+// readBody reads a request payload from stdin for the methods that take one.
+// A terminal is treated as no body: `proxz delete <url>` typed at a prompt
+// would otherwise hang waiting for EOF rather than issuing the request.
+func readBody(method string) ([]byte, error) {
+	if method == http.MethodGet || method == http.MethodHead {
+		return nil, nil
+	}
+	if term.IsTerminal(int(os.Stdin.Fd())) {
+		return nil, nil
+	}
+	body, err := io.ReadAll(os.Stdin)
+	if err != nil {
+		return nil, fmt.Errorf("reading request body from stdin: %w", err)
+	}
+	return body, nil
 }
 
 func cmdSites(args []string) error {

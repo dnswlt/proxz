@@ -8,10 +8,16 @@
 # Losing the key is not a disaster: rebuild and re-run `proxz login <site>`.
 KEYFILE := $(HOME)/.config/proxz/build.key
 
-.PHONY: build test fmt vet clean
+.PHONY: build build-any test fmt vet clean
 
 build: $(KEYFILE)
 	go build -ldflags "-X main.buildKey=$$(cat $(KEYFILE))" -o proxz .
+
+# Same binary, but with POST/PUT/PATCH/DELETE compiled in. Read-only is the
+# default on purpose: the guarantee is that the binary cannot write, and a
+# config flag an agent could edit would not be one.
+build-any: $(KEYFILE)
+	go build -tags any_methods -ldflags "-X main.buildKey=$$(cat $(KEYFILE))" -o proxz .
 
 $(KEYFILE):
 	@mkdir -p $(dir $(KEYFILE))
@@ -19,8 +25,10 @@ $(KEYFILE):
 	@chmod 600 $@
 	@echo "generated $@ - keep it; rebuilding without it means re-running 'proxz login'"
 
+# Both builds, so the any_methods files cannot rot unnoticed.
 test:
 	go test ./...
+	go test -tags any_methods ./...
 
 fmt:
 	gofmt -l -w .
