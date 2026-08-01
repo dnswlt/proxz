@@ -3,9 +3,9 @@
 //
 // It exists so an LLM agent can reach those systems without ever handling a
 // personal access token. By default it is read-only: only GET is compiled in,
-// and the other verbs fail at argument parsing. Building with the any_methods
-// tag permits the remaining HTTP methods; see methods_strict.go and
-// methods_any.go, and README.md for the threat model.
+// and the other verbs fail at argument parsing. Building with the writes tag
+// permits the remaining HTTP methods; see writes_disabled.go and
+// writes_enabled.go, and README.md for the threat model.
 package main
 
 import (

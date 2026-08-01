@@ -1,4 +1,4 @@
-//go:build any_methods
+//go:build writes
 
 package main
 

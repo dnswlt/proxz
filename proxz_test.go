@@ -209,7 +209,7 @@ func TestFetchRefusesCrossHostRedirect(t *testing.T) {
 
 func TestRunRejectsNonGetVerbs(t *testing.T) {
 	if checkMethodAllowed("post") == nil {
-		t.Skip("skipping test when any_methods build tag is enabled")
+		t.Skip("skipping test when writes build tag is enabled")
 	}
 	for _, verb := range []string{"post", "put", "delete", "patch"} {
 		err := run([]string{verb, "jira", "/rest/api/2/issue"})

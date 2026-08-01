@@ -19,12 +19,21 @@ make
 cp proxz ~/bin/    # or anywhere on your PATH
 ```
 
-The result is a single static binary with no runtime dependencies. Build with
-`make`, not `go build`: only `make` links in the machine-local key that
-encrypts stored tokens (see
+On Windows, in PowerShell:
+
+```powershell
+git clone https://github.com/dnswlt/proxz.git
+cd proxz
+.\build.ps1
+copy proxz.exe $env:USERPROFILE\bin\    # or anywhere on your PATH
+```
+
+The result is a single static binary with no runtime dependencies. Use `make`
+or `build.ps1` rather than `go build`: only they link in the machine-local key
+that encrypts stored tokens (see
 [Token storage](#token-storage-and-its-limits)).
 
-`make` produces a read-only binary. For a build that can also write, see
+Both produce a read-only binary. For one that can also write, see
 [Writes](#writes).
 
 ## Setup
@@ -70,9 +79,9 @@ the useful part.
 
 ## Writes
 
-`make build-any` compiles in `post`, `put`, `patch` and `delete`; `make` does
-not. The choice is a build tag rather than a config flag because a config flag
-is something an agent can edit.
+`make build-writes` — or `.\build.ps1 -Writes` — compiles in `post`, `put`,
+`patch` and `delete`; the plain build does not. The choice is a build tag
+rather than a config flag because a config flag is something an agent can edit.
 
 ```sh
 proxz post --body-file comment.json https://jira.corp/rest/api/2/issue/PROJ-123/comment
@@ -98,8 +107,8 @@ Enforced, and covered by tests:
 
 - **GET only, unless built otherwise.** In a default build there is no code
   path that issues another method: `proxz post ...` fails at argument parsing,
-  before any network call. A `make build-any` binary lifts this, and only this
-  — see [Writes](#writes).
+  before any network call. A `make build-writes` binary lifts this, and only
+  this — see [Writes](#writes).
 - **Path allowlist.** Only paths under `/rest/`, `/secure/attachment/` and
   `/download/attachments/` are permitted (to change them, edit
   `allowed_prefixes` in the config). Absolute URLs, protocol-relative
@@ -113,11 +122,11 @@ Enforced, and covered by tests:
 ### Token storage, and its limits
 
 Tokens are stored AES-GCM-encrypted under a key generated on your machine and
-linked into the binary at build time. The first `make` writes a random 32-byte
-key to `~/.config/proxz/build.key` (mode 0600); later builds reuse it, so
-stored tokens survive a rebuild. The key stays outside the working tree and is
-never committed — it is not in this repo. Lose it and you rebuild and re-run
-`proxz login <site>`.
+linked into the binary at build time. The first build writes a random 32-byte
+key to `~/.config/proxz/build.key` (`%USERPROFILE%\.config\proxz\build.key` on
+Windows); later builds reuse it, so stored tokens survive a rebuild. The key
+stays outside the working tree and is never committed — it is not in this repo.
+Lose it and you rebuild and re-run `proxz login <site>`.
 
 A plain `go build` produces a working binary, but falls back to a key published
 in this repo, and `login` warns you about it. Do not put a real PAT in a

@@ -1,4 +1,4 @@
-//go:build any_methods
+//go:build writes
 
 package main
 
@@ -12,7 +12,7 @@ import (
 	"testing"
 )
 
-// TestFetchSendsBodiedWrite covers what an any_methods build exists for: the
+// TestFetchSendsBodiedWrite covers what an writes build exists for: the
 // request must carry the method, the payload, a Content-Type the Atlassian
 // APIs accept, and a Content-Length rather than a chunked body.
 func TestFetchSendsBodiedWrite(t *testing.T) {
