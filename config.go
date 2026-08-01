@@ -137,19 +137,10 @@ func loadConfig() (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	info, err := os.Stat(path)
+	data, err := os.ReadFile(path)
 	if os.IsNotExist(err) {
 		return &Config{Sites: map[string]*Site{}}, nil
 	}
-	if err != nil {
-		return nil, err
-	}
-	// Refuse to use a config that anyone but the owner can read. Silently
-	// carrying on would defeat the point of scrambling the tokens.
-	if mode := info.Mode().Perm(); mode&0o077 != 0 {
-		return nil, fmt.Errorf("%s is readable by others (mode %#o); run: chmod 600 %s", path, mode, path)
-	}
-	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}

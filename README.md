@@ -107,8 +107,7 @@ Enforced, and covered by tests:
   to a host other than the configured one.
 - **No token echo.** No command prints a stored token, and no error message
   includes the header.
-- **Config permissions.** proxz refuses to run if the config is group- or
-  world-readable.
+- **Owner-only config.** proxz writes the config at mode 0600.
 
 ### Token storage, and its limits
 
