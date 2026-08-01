@@ -44,16 +44,3 @@ unambiguous.
 If prompts persist, allowlist the command: Copilot CLI takes
 `--allow-tool 'shell(proxz)'`, VS Code has an auto-approve list. proxz cannot
 write or reach an unconfigured host, so approving it once is safe.
-
-## Alternative: always-on instructions
-
-If you would rather have the rules apply to every request instead of only
-relevant ones, copy the "Rules" section of [`proxz/SKILL.md`](proxz/SKILL.md)
-into `.github/copilot-instructions.md`. Those few lines — never hunt for
-tokens, never fall back to `curl` — are short and always true, which is what
-instructions are for.
-
-Copy only that section, not the whole file. The rest is mostly REST endpoint
-tables, and they are dead weight on every task that has nothing to do with
-Atlassian. Leaving them in the skill means Copilot loads them only when a task
-actually calls for them.
